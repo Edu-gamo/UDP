@@ -70,10 +70,8 @@ bool connect() {
 			com = (Commands)enmunVar;
 			switch (com) {
 			case WELCOME:
-				//packetIn >> me.id_player;
-				packetIn >> me.nickname;
-				//std::cout << "Eres el jugador: " << me.id_player << std::endl;
-				std::cout << "Eres el jugador: " << me.nickname << std::endl;
+				packetIn >> me.id_player;
+				std::cout << "Eres el jugador: " << me.id_player << std::endl;
 				return true;
 			default:
 				break;
@@ -104,7 +102,7 @@ void main() {
 	}
 
 	while (running) {
-		std::cout << "Eres el jugador: " << me.id_player << std::endl;
+		//std::cout << "Eres el jugador: " << me.id_player << std::endl;
 		/*status = receive();
 		if (status == sf::Socket::Done) {
 			int enmunVar;

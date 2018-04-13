@@ -91,8 +91,8 @@ void main() {
 						players.push_back(newPlayer);
 						players.back().id_player = players.size();
 					}
-					//packetOut << Commands::WELCOME << players[i].id_player /*<< players[i].posX << players[i].posY*/;
-					packetOut << Commands::WELCOME << players[i].nickname;
+					packetOut.clear();
+					packetOut << Commands::WELCOME << players[i].id_player; /*<< players[i].posX << players[i].posY*/
 					if (!send(packetOut, i)) {
 						std::cout << "Error al enviar datos al jugador: " << players[i].nickname << std::endl;
 					}
