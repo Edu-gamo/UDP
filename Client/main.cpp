@@ -16,7 +16,7 @@ sf::IpAddress senderIP;
 unsigned short senderPort;
 
 enum Commands {
-	HELLO, WELCOME
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT
 };
 
 class Player {
@@ -102,24 +102,7 @@ void main() {
 	}
 
 	while (running) {
-		//std::cout << "Eres el jugador: " << me.id_player << std::endl;
-		/*status = receive();
-		if (status == sf::Socket::Done) {
-			int enmunVar;
-			Commands com;
-			packetIn >> enmunVar;
-			com = (Commands)enmunVar;
-			switch (com) {
-				case WELCOME:
-					packetIn >> me.id_player;
-					std::cout << "Eres el jugador: " << me.id_player << std::endl;
-					break;
-				default:
-					break;
-			}
-		} else if (status != sf::Socket::NotReady) {
-			std::cout << "Error al recibir datos" << std::endl;
-		}*/
+		
 	}
 
 }

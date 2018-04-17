@@ -13,8 +13,10 @@ sf::Packet packetIn, packetOut;
 sf::IpAddress senderIP;
 unsigned short senderPort;
 
+INT8 playerIds = 0;
+
 enum Commands {
-	HELLO, WELCOME
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT
 };
 
 class Player {
@@ -40,17 +42,32 @@ Player::~Player()
 {
 }
 
-std::vector<Player> players;
+std::map<int, Player> players;
+
+std::map<int, sf::Packet> criticalMSG;
+int criticalID;
 
 bool send(sf::Packet packet, int index) {
 	return (socket.send(packet, players[index].ip, players[index].port) == sf::Socket::Done);
 }
 
-/*void initPosition(int index) {
+//Envia un Packet a todos los clientes menos al del indice
+void sendAll(sf::Packet packet, int index) {
+	for (int i = 0; i < players.size(); i++) {
+		if(index != i) socket.send(packet, players[i].ip, players[i].port);
+	}
+}
 
+//Envia un Packet a todos los clientes
+void sendAll(sf::Packet packet) {
+	for (int i = 0; i < players.size(); i++) {
+		socket.send(packet, players[i].ip, players[i].port);
+	}
+}
 
-
-}*/
+void sendCriticalMSG(sf::Packet packet) {
+	
+}
 
 void main() {
 
@@ -88,13 +105,18 @@ void main() {
 						newPlayer.ip = senderIP;
 						newPlayer.port = senderPort;
 						packetIn >> newPlayer.nickname;
-						players.push_back(newPlayer);
-						players.back().id_player = players.size();
+						newPlayer.id_player = playerIds;
+						playerIds++;
+						players.insert(newPlayer.id_player, newPlayer);
 					}
 					packetOut.clear();
 					packetOut << Commands::WELCOME << players[i].id_player; /*<< players[i].posX << players[i].posY*/
 					if (!send(packetOut, i)) {
 						std::cout << "Error al enviar datos al jugador: " << players[i].nickname << std::endl;
+					} else {
+						packetOut.clear();
+						packetOut << Commands::NEWPLAYER << players[i].id_player;
+						//Hay que enviar NEWPLAYER a todos y guardarlo como critical hasta recibir el ACK, por cada cliente
 					}
 					std::cout << "Se ha conectado el jugador: " << players[i].nickname << " : " << players[i].id_player << std::endl;
 				}
