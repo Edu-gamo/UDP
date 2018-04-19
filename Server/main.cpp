@@ -44,7 +44,15 @@ Player::~Player()
 
 std::map<int, Player> players;
 
-std::map<int, sf::Packet> criticalMSG;
+struct CriticalPacket {
+
+	sf::IpAddress ip;
+	unsigned short port;
+	sf::Packet packet;
+
+};
+
+std::map<int, CriticalPacket> criticalMSG;
 int criticalID;
 
 bool send(sf::Packet packet, int index) {
@@ -65,8 +73,25 @@ void sendAll(sf::Packet packet) {
 	}
 }
 
-void sendCriticalMSG(sf::Packet packet) {
+void sendCriticalMSG(sf::Packet packet, int index) {
+
+	CriticalPacket cp;
+	cp.ip = players.at(index).ip;
+	cp.port = players.at(index).port;
+	packet << criticalID;
+	cp.packet = packet;
+
+	criticalMSG.emplace(criticalID, cp);
+	criticalID++;
+
+	send(packet, index);
 	
+}
+
+void sendAllCriticalMSG() {
+	for (int i = 0; i < criticalMSG.size(); i++) {
+		socket.send(criticalMSG.at(i).packet, criticalMSG.at(i).ip, criticalMSG.at(i).port);
+	}
 }
 
 void main() {
@@ -95,9 +120,9 @@ void main() {
 			case HELLO: {
 				if (players.size() < MAX_PLAYERS) {
 					bool exist = false;
-					int i = 0;
-					while (i < players.size() && !exist) {
-						if (senderIP == players[i].ip && senderPort == players[i].port) exist = true;
+					std::map<int, Player>::iterator i = players.begin();
+					while (i != players.end() && !exist) {
+						if (senderIP == i->second.ip && senderPort == i->second.port) exist = true;
 						else i++;
 					}
 					if (!exist) {
@@ -107,18 +132,27 @@ void main() {
 						packetIn >> newPlayer.nickname;
 						newPlayer.id_player = playerIds;
 						playerIds++;
-						players.insert(newPlayer.id_player, newPlayer);
+						players.emplace(newPlayer.id_player, newPlayer);
 					}
 					packetOut.clear();
-					packetOut << Commands::WELCOME << players[i].id_player; /*<< players[i].posX << players[i].posY*/
-					if (!send(packetOut, i)) {
-						std::cout << "Error al enviar datos al jugador: " << players[i].nickname << std::endl;
+					packetOut << Commands::WELCOME << i->first; /*<< i->second.posX << i->second.posY*/
+					if (!send(packetOut, i->first)) {
+						std::cout << "Error al enviar datos al jugador: " << i->second.nickname << std::endl;
 					} else {
-						packetOut.clear();
-						packetOut << Commands::NEWPLAYER << players[i].id_player;
+						sf::Packet newPlayerPacket;
+						newPlayerPacket.clear();
+						newPlayerPacket << Commands::NEWPLAYER << i->first;/*<< i->second.posX << i->second.posY*/
+						for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+							if (it->first != i->first) {
+								packetOut.clear();
+								packetOut << Commands::NEWPLAYER << it->first;/*<< it->second.posX << it->second.posY*/
+								sendCriticalMSG(newPlayerPacket, it->first);
+								sendCriticalMSG(packetOut, i->first);
+							}
+						}
 						//Hay que enviar NEWPLAYER a todos y guardarlo como critical hasta recibir el ACK, por cada cliente
 					}
-					std::cout << "Se ha conectado el jugador: " << players[i].nickname << " : " << players[i].id_player << std::endl;
+					std::cout << "Se ha conectado el jugador: " << i->second.nickname << " : " << i->first << std::endl;
 				}
 				break;
 			}
