@@ -16,7 +16,7 @@ sf::IpAddress senderIP;
 unsigned short senderPort;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING
 };
 
 class Player {
@@ -39,7 +39,7 @@ Player::~Player()
 {
 }
 
-std::vector<Player> players;
+std::map<int, Player> players;
 Player me;
 
 bool send(sf::Packet packet) {
@@ -102,6 +102,65 @@ void main() {
 	}
 
 	while (running) {
+
+		status = receive();
+		if (status == sf::Socket::Done) {
+			int enmunVar;
+			int idPacket;
+			Commands com;
+			packetIn >> enmunVar;
+			com = (Commands)enmunVar;
+			switch (com) {
+			case NEWPLAYER:
+			{
+				int newIdPlayer;
+				packetIn >> newIdPlayer; //recibir nickname y posicion
+				packetIn >> idPacket;
+				bool exist = false;
+				std::map<int, Player>::iterator i = players.begin();
+				while (i != players.end() && !exist) {
+					if (newIdPlayer == i->first) exist = true;
+					else i++;
+				}
+				if (!exist) {
+					Player newPlayer;
+					newPlayer.id_player = newIdPlayer;
+					players.emplace(newIdPlayer, newPlayer);
+				}
+				packetOut.clear();
+				packetOut << Commands::ACK << idPacket;
+				send(packetOut);
+				break;
+			}
+			case PING: {
+				packetOut.clear();
+				packetOut << Commands::PING << me.id_player;
+				send(packetOut);
+			}
+				break;
+			case DISCONECT: {
+				int id;
+				packetIn >> id;
+				packetIn >> idPacket;
+				bool exist = false;
+				std::map<int, Player>::iterator i = players.begin();
+				while (i != players.end() && !exist) {
+					if (id == i->first) exist = true;
+					else i++;
+				}
+				if (exist) {
+					players.erase(id);
+				}
+				packetOut.clear();
+				packetOut << Commands::ACK << idPacket;
+			}
+				break;
+			default:
+				break;
+			}
+		} else if (status != sf::Socket::NotReady) {
+			std::cout << "Error al recibir datos" << std::endl;
+		}
 		
 	}
 

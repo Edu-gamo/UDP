@@ -1,9 +1,14 @@
 #include "SFML\Network.hpp"
 #include <iostream>
+#include <chrono>
+
+typedef std::chrono::high_resolution_clock Clock;
 
 int MAX_PLAYERS = 4;
 
 unsigned short port = 5000;
+
+unsigned short max_pings = 5;
 
 sf::UdpSocket socket;
 sf::Socket::Status status;
@@ -16,7 +21,7 @@ unsigned short senderPort;
 INT8 playerIds = 0;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING
 };
 
 class Player {
@@ -31,6 +36,8 @@ public:
 	int id_player;
 
 	int posX, posY;
+
+	unsigned short pings;
 
 };
 
@@ -61,15 +68,15 @@ bool send(sf::Packet packet, int index) {
 
 //Envia un Packet a todos los clientes menos al del indice
 void sendAll(sf::Packet packet, int index) {
-	for (int i = 0; i < players.size(); i++) {
-		if(index != i) socket.send(packet, players[i].ip, players[i].port);
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+		if(index != it->first) socket.send(packet, it->second.ip, it->second.port);
 	}
 }
 
 //Envia un Packet a todos los clientes
 void sendAll(sf::Packet packet) {
-	for (int i = 0; i < players.size(); i++) {
-		socket.send(packet, players[i].ip, players[i].port);
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+		socket.send(packet, it->second.ip, it->second.port);
 	}
 }
 
@@ -89,8 +96,29 @@ void sendCriticalMSG(sf::Packet packet, int index) {
 }
 
 void sendAllCriticalMSG() {
-	for (int i = 0; i < criticalMSG.size(); i++) {
-		socket.send(criticalMSG.at(i).packet, criticalMSG.at(i).ip, criticalMSG.at(i).port);
+	for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
+		socket.send(it->second.packet, it->second.ip, it->second.port);
+	}
+}
+
+void disconect(int id) {
+	packetOut.clear();
+	packetOut << Commands::DISCONECT << id;
+	players.erase(id);
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+		sendCriticalMSG(packetOut, it->first);
+	}
+}
+
+void sendPing() {
+	packetOut.clear();
+	packetOut << Commands::PING;
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+		socket.send(packetOut, it->second.ip, it->second.port);
+		it->second.pings++;
+		if (it->second.pings >= max_pings) {
+			disconect(it->first);
+		}
 	}
 }
 
@@ -107,6 +135,10 @@ void main() {
 	} else {
 		std::cout << "Vinculado al puerto " << port << std::endl;
 	}
+
+	auto c1 = Clock::now();
+	auto c2 = Clock::now();
+	int time = std::chrono::duration_cast<std::chrono::milliseconds>(c2 - c1).count();
 
 	while (running) {
 
@@ -150,17 +182,31 @@ void main() {
 								sendCriticalMSG(packetOut, i->first);
 							}
 						}
-						//Hay que enviar NEWPLAYER a todos y guardarlo como critical hasta recibir el ACK, por cada cliente
+						//Hay que recibir el ACK, por cada cliente
 					}
 					std::cout << "Se ha conectado el jugador: " << i->second.nickname << " : " << i->first << std::endl;
 				}
 				break;
 			}
+			case PING: {
+				int id;
+				packetIn >> id;
+				players.at(id).pings = 0;
+			}
+				break;
 				default:
 					break;
 			}
 		} else if (status != sf::Socket::NotReady) {
 			std::cout << "Error al recibir datos" << std::endl;
+		}
+
+		c2 = Clock::now();
+		time = std::chrono::duration_cast<std::chrono::milliseconds>(c2 - c1).count();
+		if (time > 1000) {
+			c1 = Clock::now();
+			sendPing();
+			sendAllCriticalMSG();
 		}
 
 	}
