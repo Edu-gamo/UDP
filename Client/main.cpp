@@ -49,7 +49,7 @@ public:
 	int spawnPointY;
 	int speed;
 
-	int currentX;
+	int currentX = 800;
 	int deltaX;
 
 	obstacle();
@@ -243,6 +243,11 @@ void update() {
 		std::cout << "Error al recibir datos" << std::endl;
 	}
 
+	//Update obstacle Position
+	for (std::map<int, obstacle>::iterator it = ObstacleMap.begin(); it != ObstacleMap.end(); it++) {
+		it->second.currentX -= it->second.speed;
+	}
+
 }
 
 void draw() {
@@ -271,8 +276,15 @@ void draw() {
 		window.draw(rectAvatar);
 	}
 
-	window.display();
+	//Pintar obstaculos
+	for (std::map<int, obstacle>::iterator it = ObstacleMap.begin(); it != ObstacleMap.end(); it++) {
+		sf::RectangleShape rectAvatar(sf::Vector2f(20, 20));
+		rectAvatar.setFillColor(sf::Color::White);
+		rectAvatar.setPosition(sf::Vector2f(it->second.currentX, it->second.spawnPointY));
+		window.draw(rectAvatar);
+	}
 
+	window.display();
 }
 
 void main() {

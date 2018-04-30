@@ -145,7 +145,7 @@ public:
 	int spawnPointY;
 	int speed;
 
-	int currentX;
+	int currentX = 800;
 	int deltaX;
 
 	obstacle();
