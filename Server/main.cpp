@@ -21,7 +21,7 @@ INT8 playerIds = 0;
 int pingCount = 0;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN
 };
 
 class Player {
@@ -134,7 +134,56 @@ void sendPing() {
 void giveRandomPos(int id) {
 
 	players.at(id).posX = rand() % 370 + 200;
-	players.at(id).posY = rand() % 570;
+	players.at(id).posY = rand() % 570;	
+
+}
+
+class obstacle
+{
+public:
+
+	int spawnPointY;
+	int speed;
+
+	int currentX;
+	int deltaX;
+
+	obstacle();
+	~obstacle();
+
+private:
+
+};
+
+obstacle::obstacle()
+{
+}
+
+obstacle::~obstacle()
+{
+}
+
+std::map<int, obstacle> ObstacleMap;
+int obstacleId = 0;
+
+void spawnObstacle() {
+
+	int spawnPoint = rand() % 570;
+	int speed = rand() % 5; 
+
+	packetOut.clear();
+	packetOut << Commands::OBSTACLE_SPAWN << obstacleId << spawnPoint << speed;
+
+	obstacle newObstacle = obstacle();
+	newObstacle.spawnPointY = spawnPoint;
+	newObstacle.speed = speed;
+	ObstacleMap.emplace(obstacleId, newObstacle);
+
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+		sendCriticalMSG(packetOut, it->first);
+	}
+
+	obstacleId++;
 
 }
 

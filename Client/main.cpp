@@ -16,7 +16,7 @@ unsigned short senderPort;
 sf::RenderWindow window(sf::VideoMode(800, 600), "Client");
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN
 };
 
 class Player {
@@ -41,6 +41,33 @@ Player::~Player()
 
 std::map<int, Player> players;
 Player me;
+
+class obstacle
+{
+public:
+
+	int spawnPointY;
+	int speed;
+
+	int currentX;
+	int deltaX;
+
+	obstacle();
+	~obstacle();
+
+private:
+
+};
+
+obstacle::obstacle()
+{
+}
+
+obstacle::~obstacle()
+{
+}
+
+std::map<int, obstacle> ObstacleMap;
 
 bool send(sf::Packet packet) {
 	return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
@@ -178,6 +205,33 @@ void update() {
 			}
 			packetOut.clear();
 			packetOut << Commands::ACK << idPacket;
+		}
+			break;
+
+		case OBSTACLE_SPAWN: {
+			int obstacleId, spawnPos, speed;
+
+			packetIn >> obstacleId;
+			packetIn >> spawnPos;
+			packetIn >> speed;
+			packetIn >> idPacket;
+
+			bool exist = false;
+			std::map<int, obstacle>::iterator i = ObstacleMap.begin();
+			while (i != ObstacleMap.end() && !exist) {
+				if (obstacleId == i->first) exist = true;
+				else i++;
+			}
+			if (!exist) {
+				obstacle newObstacle = obstacle();
+				newObstacle.spawnPointY = spawnPos;
+				newObstacle.speed = speed;
+				ObstacleMap.emplace(obstacleId, newObstacle);
+			}
+			packetOut.clear();
+			packetOut << Commands::ACK << idPacket;
+			send(packetOut);
+			break;
 		}
 			break;
 
