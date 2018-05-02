@@ -21,13 +21,22 @@ INT8 playerIds = 0;
 int pingCount = 0;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
 };
+
+/*struct MoveStruct {
+
+	int idPlayer;
+	sf::Packet packet;
+
+};*/
 
 class Player {
 public:
 	Player();
 	~Player();
+
+	int lastMoveId = 0;
 
 	sf::IpAddress ip;
 	unsigned short port;
@@ -56,6 +65,7 @@ void removePlayersDisconected() {
 	for (int i = 0; i < playersToRemove.size(); i++) {
 		players.erase(playersToRemove[i]);
 	}
+	playersToRemove.clear();
 }
 
 struct CriticalPacket {
@@ -244,7 +254,7 @@ void main() {
 						for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
 							if (it->first != i->first) {
 								packetOut.clear();
-								packetOut << Commands::NEWPLAYER << it->first << i->second.nickname << it->second.posX << it->second.posY;
+								packetOut << Commands::NEWPLAYER << it->first << it->second.nickname << it->second.posX << it->second.posY;
 								sendCriticalMSG(newPlayerPacket, it->first);
 								sendCriticalMSG(packetOut, i->first);
 							}
@@ -265,15 +275,29 @@ void main() {
 				packetIn >> id;
 				criticalMSG.erase(id);
 			}
-					   break;
-				default:
-					break;
+				break;
+			case MOVE: {
+				int idPlayer, idPacket, deltaX, deltaY;
+				packetIn >> idPlayer >> idPacket;
+				if (players.at(idPlayer).lastMoveId < idPacket) {
+					packetIn >> deltaX >> deltaY;
+					players.at(idPlayer).posX += deltaX;
+					players.at(idPlayer).posY += deltaY;
+					packetOut.clear();
+					packetOut << Commands::MOVE << idPlayer << idPacket << players.at(idPlayer).posX << players.at(idPlayer).posY;
+					sendAll(packetOut);
+				}
+			}
+				break;
+			default:
+				break;
 			}
 		} else if (status != sf::Socket::NotReady) {
 			std::cout << "Error al recibir datos" << std::endl;
 		}
 
 		if (clock.getElapsedTime().asMilliseconds() > 500) {
+			//spawnObstacle();
 			pingCount++;
 			clock.restart();
 			if (pingCount >= 5) {

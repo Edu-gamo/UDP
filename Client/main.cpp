@@ -13,10 +13,12 @@ sf::Packet packetIn, packetOut;
 sf::IpAddress senderIP;
 unsigned short senderPort;
 
-sf::RenderWindow window(sf::VideoMode(800, 600), "Client");
+sf::RenderWindow window;
+
+int idMove = 0;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
 };
 
 class Player {
@@ -28,6 +30,9 @@ public:
 	int id_player;
 
 	int posX, posY;
+	int deltaX, deltaY;
+
+	int lastMoveId = 0;
 
 };
 
@@ -52,6 +57,8 @@ public:
 	int currentX = 800;
 	int deltaX;
 
+	int size = 20;
+
 	obstacle();
 	~obstacle();
 
@@ -68,6 +75,14 @@ obstacle::~obstacle()
 }
 
 std::map<int, obstacle> ObstacleMap;
+std::vector<int> obstaclesToRemove;
+
+void removeObstacles() {
+	for (int i = 0; i < obstaclesToRemove.size(); i++) {
+		ObstacleMap.erase(obstaclesToRemove[i]);
+	}
+	obstaclesToRemove.clear();
+}
 
 bool send(sf::Packet packet) {
 	return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
@@ -118,34 +133,31 @@ bool connect() {
 
 }
 
-void update() {
+void update(sf::Clock clock) {
 	
 	sf::Event event;
 
 	//Este primer WHILE es para controlar los eventos del mouse
 	while (window.pollEvent(event)) {
 		switch (event.type) {
-		case sf::Event::Closed:
-			window.close();
-			break;
-			/*case sf::Event::KeyPressed:
-			if (event.key.code == sf::Keyboard::Left) {
-			sf::Packet pckLeft;
-			int posAux = pos - 1;
-			pckLeft << posAux;
-			sock.send(pckLeft, IP_SERVER, PORT_SERVER);
+			case sf::Event::Closed:
+				window.close();
+				break;
 
-			} else if (event.key.code == sf::Keyboard::Right) {
-			sf::Packet pckRight;
-			int posAux = pos + 1;
-			pckRight << posAux;
-			sock.send(pckRight, IP_SERVER, PORT_SERVER);
-			}
-			break;*/
+			case sf::Event::KeyPressed:
+				if (event.key.code == sf::Keyboard::Left) {
+					me.deltaX--;
+				} else if (event.key.code == sf::Keyboard::Right) {
+					me.deltaX++;
+				} else if (event.key.code == sf::Keyboard::Up) {
+					me.deltaY--;
+				} else if (event.key.code == sf::Keyboard::Down) {
+					me.deltaY++;
+				}
+				break;
 
-		default:
-			break;
-
+			default:
+				break;
 		}
 	}
 
@@ -234,7 +246,24 @@ void update() {
 			break;
 		}
 			break;
-
+		case MOVE: {
+			int idPlayer, idPacket, newPosX, newPosY;
+			packetIn >> idPlayer >> idPacket >> newPosX >> newPosY;
+			if (idPlayer == me.id_player) {
+				if (idPacket > me.lastMoveId) {
+					me.posX = newPosX;
+					me.posY = newPosY;
+					me.lastMoveId = idPacket;
+				}
+			} else {
+				if (idPacket > players.at(idPlayer).lastMoveId) {
+					players.at(idPlayer).posX = newPosX;
+					players.at(idPlayer).posY = newPosY;
+					players.at(idPlayer).lastMoveId = idPacket;
+				}
+			}
+		}
+			break;
 		default:
 			break;
 		}
@@ -245,7 +274,24 @@ void update() {
 
 	//Update obstacle Position
 	for (std::map<int, obstacle>::iterator it = ObstacleMap.begin(); it != ObstacleMap.end(); it++) {
-		it->second.currentX -= it->second.speed;
+		if (it->second.size <= 0) {
+			obstaclesToRemove.push_back(it->first);
+		} else if(it->second.currentX <= 175 - it->second.speed * 10) {
+			it->second.size--;
+		} else {
+			it->second.currentX -= it->second.speed;
+		}
+	}
+
+	removeObstacles();
+
+	if (clock.getElapsedTime().asMilliseconds() > 500) {
+		packetOut.clear();
+		packetOut << Commands::MOVE << me.id_player << idMove << me.deltaX << me.deltaY;
+		idMove++;
+		me.deltaX = me.deltaY = 0;
+		send(packetOut);
+		clock.restart();
 	}
 
 }
@@ -253,6 +299,16 @@ void update() {
 void draw() {
 
 	window.clear();
+
+	sf::Text text;
+	sf::Font font;
+
+	if (!font.loadFromFile("comicSans.ttf")) {
+		std::cout << "Can't load the font file" << std::endl;
+	}
+	text.setFont(font);
+	text.setFillColor(sf::Color::White);
+	text.setCharacterSize(16);
 
 	//Pintar mapa
 	sf::RectangleShape rectBlanco(sf::Vector2f(1, 600));
@@ -267,6 +323,9 @@ void draw() {
 	rectAvatar.setFillColor(sf::Color::Green);
 	rectAvatar.setPosition(sf::Vector2f(me.posX, me.posY));
 	window.draw(rectAvatar);
+	text.setString(me.nickname);
+	text.setPosition(me.posX, me.posY - 20);
+	window.draw(text);
 
 	//Pîntar jugadores
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
@@ -274,11 +333,14 @@ void draw() {
 		rectAvatar.setFillColor(sf::Color::Red);
 		rectAvatar.setPosition(sf::Vector2f(it->second.posX, it->second.posY));
 		window.draw(rectAvatar);
+		text.setString(it->second.nickname);
+		text.setPosition(it->second.posX, it->second.posY - 20);
+		window.draw(text);
 	}
 
 	//Pintar obstaculos
 	for (std::map<int, obstacle>::iterator it = ObstacleMap.begin(); it != ObstacleMap.end(); it++) {
-		sf::RectangleShape rectAvatar(sf::Vector2f(20, 20));
+		sf::RectangleShape rectAvatar(sf::Vector2f(it->second.size, it->second.size));
 		rectAvatar.setFillColor(sf::Color::White);
 		rectAvatar.setPosition(sf::Vector2f(it->second.currentX, it->second.spawnPointY));
 		window.draw(rectAvatar);
@@ -299,10 +361,11 @@ void main() {
 	} else {
 		std::cout << "Conectado al servidor (" << serverIp << ":" << serverPort << ")" << std::endl;
 
-		window.setTitle("Player " + me.nickname);
+		window.create(sf::VideoMode(800, 600), "Player " + me.nickname);
 
+		sf::Clock clock;
 		while (window.isOpen()) {
-			update();
+			update(clock);
 			draw();
 		}
 
