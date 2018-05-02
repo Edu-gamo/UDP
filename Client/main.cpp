@@ -285,12 +285,12 @@ void update(sf::Clock clock) {
 
 	removeObstacles();
 
-	if (clock.getElapsedTime().asMilliseconds() > 500) {
+	if (clock.getElapsedTime().asMilliseconds() > 50) {
 		packetOut.clear();
 		packetOut << Commands::MOVE << me.id_player << idMove << me.deltaX << me.deltaY;
 		idMove++;
+		if (me.deltaX != 0 || me.deltaY != 0) send(packetOut);
 		me.deltaX = me.deltaY = 0;
-		send(packetOut);
 		clock.restart();
 	}
 

@@ -174,7 +174,15 @@ obstacle::~obstacle()
 }
 
 std::map<int, obstacle> ObstacleMap;
+std::vector<int> obstaclesToRemove;
 int obstacleId = 0;
+
+void removeObstacles() {
+	for (int i = 0; i < obstaclesToRemove.size(); i++) {
+		ObstacleMap.erase(obstaclesToRemove[i]);
+	}
+	obstaclesToRemove.clear();
+}
 
 void spawnObstacle() {
 
@@ -296,18 +304,28 @@ void main() {
 			std::cout << "Error al recibir datos" << std::endl;
 		}
 
-		if (clock.getElapsedTime().asMilliseconds() > 500) {
-			//spawnObstacle();
+		if (clock.getElapsedTime().asMilliseconds() > 50) {
 			pingCount++;
 			clock.restart();
 			if (pingCount >= 5) {
+				spawnObstacle();
 				sendPing();
 				pingCount = 0;
 			}
 			sendAllCriticalMSG();
 		}
 
+		//Update obstacle Position
+		for (std::map<int, obstacle>::iterator it = ObstacleMap.begin(); it != ObstacleMap.end(); it++) {
+			if (it->second.currentX <= 175 - it->second.speed * 10) {
+				obstaclesToRemove.push_back(it->first);
+			} else {
+				it->second.currentX -= it->second.speed;
+			}
+		}
+
 		removePlayersDisconected();
+		removeObstacles();
 
 	}
 
