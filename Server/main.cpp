@@ -3,6 +3,7 @@
 #include <time.h>
 
 int MAX_PLAYERS = 4;
+int RND = 10;
 
 unsigned short port = 5000;
 
@@ -24,12 +25,6 @@ enum Commands {
 	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
 };
 
-/*struct MoveStruct {
-
-	int idPlayer;
-	sf::Packet packet;
-
-};*/
 
 class Player {
 public:
@@ -80,20 +75,34 @@ std::map<int, CriticalPacket> criticalMSG;
 int criticalID;
 
 bool send(sf::Packet packet, int index) {
-	return (socket.send(packet, players.at(index).ip, players.at(index).port) == sf::Socket::Done);
+
+	if (rand() % RND == 1) {
+		std::cout << "Se ha perdido el Paquete al enviarse\n";
+		return true;
+	} else {
+		return (socket.send(packet, players.at(index).ip, players.at(index).port) == sf::Socket::Done);
+	}
 }
 
 //Envia un Packet a todos los clientes menos al del indice
 void sendAll(sf::Packet packet, int index) {
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
-		if(index != it->first) socket.send(packet, it->second.ip, it->second.port);
+		if (rand() % RND == 1) {
+			std::cout << "Se ha perdido el Paquete al enviarse\n";
+		} else {
+			if (index != it->first) socket.send(packet, it->second.ip, it->second.port);
+		}
 	}
 }
 
 //Envia un Packet a todos los clientes
 void sendAll(sf::Packet packet) {
-	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
-		socket.send(packet, it->second.ip, it->second.port);
+	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {		
+		if (rand() % RND == 1) {
+			std::cout << "Se ha perdido el Paquete al enviarse\n";
+		} else {
+			socket.send(packet, it->second.ip, it->second.port);
+		}
 	}
 }
 
@@ -113,8 +122,12 @@ void sendCriticalMSG(sf::Packet packet, int index) {
 }
 
 void sendAllCriticalMSG() {
-	for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
-		socket.send(it->second.packet, it->second.ip, it->second.port);
+	for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {		
+		if (rand() % RND == 1) {
+			std::cout << "Se ha perdido el Paquete al enviarse\n";
+		} else {
+			socket.send(it->second.packet, it->second.ip, it->second.port);
+		}
 	}
 }
 
@@ -304,7 +317,7 @@ void main() {
 			std::cout << "Error al recibir datos" << std::endl;
 		}
 
-		if (clock.getElapsedTime().asMilliseconds() > 50) {
+		if (clock.getElapsedTime().asMilliseconds() > 100) {
 			pingCount++;
 			clock.restart();
 			if (pingCount >= 5) {

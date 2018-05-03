@@ -17,6 +17,8 @@ sf::RenderWindow window;
 
 int idMove = 0;
 
+int RND = 10;
+
 enum Commands {
 	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
 };
@@ -84,8 +86,13 @@ void removeObstacles() {
 	obstaclesToRemove.clear();
 }
 
-bool send(sf::Packet packet) {
-	return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
+bool send(sf::Packet packet) {	
+	if (rand() % RND == 1) {
+		std::cout << "Se ha perdido el Paquete al enviarse\n";
+		return true;
+	} else {
+		return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
+	}
 }
 
 sf::Socket::Status receive() {
@@ -285,7 +292,7 @@ void update(sf::Clock clock) {
 
 	removeObstacles();
 
-	if (clock.getElapsedTime().asMilliseconds() > 50) {
+	if (clock.getElapsedTime().asMilliseconds() > 100) {
 		packetOut.clear();
 		packetOut << Commands::MOVE << me.id_player << idMove << me.deltaX << me.deltaY;
 		idMove++;
