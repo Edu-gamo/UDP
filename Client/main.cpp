@@ -17,7 +17,7 @@ sf::RenderWindow window;
 
 int idMove = 0;
 
-int RND = 10;
+int RND = 20;
 
 enum Commands {
 	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
@@ -91,6 +91,7 @@ bool send(sf::Packet packet) {
 		std::cout << "Se ha perdido el Paquete al enviarse\n";
 		return true;
 	} else {
+		std::cout << "Se ha enviado OK\n";
 		return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
 	}
 }
@@ -205,6 +206,7 @@ void update(sf::Clock clock) {
 		case PING: {
 			packetOut.clear();
 			packetOut << Commands::PING << me.id_player;
+			std::cout << me.id_player << "\n";
 			send(packetOut);
 		}
 			break;
@@ -249,6 +251,7 @@ void update(sf::Clock clock) {
 			}
 			packetOut.clear();
 			packetOut << Commands::ACK << idPacket;
+			std::cout << "envio ACK de spawn\n";
 			send(packetOut);
 			break;
 		}
@@ -296,7 +299,10 @@ void update(sf::Clock clock) {
 		packetOut.clear();
 		packetOut << Commands::MOVE << me.id_player << idMove << me.deltaX << me.deltaY;
 		idMove++;
-		if (me.deltaX != 0 || me.deltaY != 0) send(packetOut);
+		if (me.deltaX != 0 || me.deltaY != 0) {
+			std::cout << "envio delta\n";
+			send(packetOut);
+		}
 		me.deltaX = me.deltaY = 0;
 		clock.restart();
 	}

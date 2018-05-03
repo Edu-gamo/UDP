@@ -3,7 +3,7 @@
 #include <time.h>
 
 int MAX_PLAYERS = 4;
-int RND = 10;
+int RND = 20;
 
 unsigned short port = 5000;
 
@@ -263,6 +263,7 @@ void main() {
 						players.emplace(newPlayer.id_player, newPlayer);
 						i--;
 						giveRandomPos(i->first);
+						std::cout << "Genero el player " << newPlayer.id_player << std::endl;
 					}
 					packetOut.clear();
 					packetOut << Commands::WELCOME << i->first << i->second.posX << i->second.posY;
@@ -289,6 +290,7 @@ void main() {
 				int id;
 				packetIn >> id;
 				players.at(id).pings = 0;
+				std::cout << "Arriba ping del player " << id << std::endl;
 			}
 				break;
 			case ACK: {
@@ -320,9 +322,9 @@ void main() {
 		if (clock.getElapsedTime().asMilliseconds() > 100) {
 			pingCount++;
 			clock.restart();
-			if (pingCount >= 5) {
+			if (pingCount >= 10) {
 				spawnObstacle();
-				sendPing();
+				if (players.size() >= MAX_PLAYERS) sendPing();
 				pingCount = 0;
 			}
 			sendAllCriticalMSG();
