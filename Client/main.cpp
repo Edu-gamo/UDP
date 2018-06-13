@@ -20,7 +20,7 @@ int idMove = 0;
 int RND = 20;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE, DEAD
 };
 
 class Player {
@@ -154,13 +154,13 @@ void update(sf::Clock clock) {
 
 			case sf::Event::KeyPressed:
 				if (event.key.code == sf::Keyboard::Left) {
-					me.deltaX--;
+					me.deltaX = me.deltaX - 5;
 				} else if (event.key.code == sf::Keyboard::Right) {
-					me.deltaX++;
+					me.deltaX = me.deltaX + 5;
 				} else if (event.key.code == sf::Keyboard::Up) {
-					me.deltaY--;
+					me.deltaY = me.deltaY - 5;
 				} else if (event.key.code == sf::Keyboard::Down) {
-					me.deltaY++;
+					me.deltaY = me.deltaY + 5;
 				}
 				break;
 
@@ -226,6 +226,7 @@ void update(sf::Clock clock) {
 			}
 			packetOut.clear();
 			packetOut << Commands::ACK << idPacket;
+			send(packetOut);
 		}
 			break;
 
@@ -272,6 +273,14 @@ void update(sf::Clock clock) {
 					players.at(idPlayer).lastMoveId = idPacket;
 				}
 			}
+		}
+			break;
+		case DEAD: {
+			packetIn >> idPacket;			
+			packetOut << Commands::DEAD << me.id_player << idPacket;
+			send(packetOut);
+			std::cout << "HAS MUERTO\n";
+			window.close();
 		}
 			break;
 		default:
@@ -383,5 +392,7 @@ void main() {
 		}
 
 	}
+
+	system("pause");
 
 }

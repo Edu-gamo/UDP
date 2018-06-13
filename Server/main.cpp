@@ -20,9 +20,10 @@ unsigned short senderPort;
 INT8 playerIds = 0;
 
 int pingCount = 0;
+bool gameReady = false;
 
 enum Commands {
-	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE
+	HELLO, WELCOME, NEWPLAYER, ACK, DISCONECT, PING, OBSTACLE_SPAWN, MOVE, DEAD
 };
 
 
@@ -42,7 +43,6 @@ public:
 	int posX, posY;
 
 	unsigned short pings;
-
 };
 
 Player::Player()
@@ -56,12 +56,6 @@ Player::~Player()
 std::map<int, Player> players;
 std::vector<int> playersToRemove;
 
-void removePlayersDisconected() {
-	for (int i = 0; i < playersToRemove.size(); i++) {
-		players.erase(playersToRemove[i]);
-	}
-	playersToRemove.clear();
-}
 
 struct CriticalPacket {
 
@@ -72,7 +66,18 @@ struct CriticalPacket {
 };
 
 std::map<int, CriticalPacket> criticalMSG;
+//std::vector<int> critical
 int criticalID;
+
+void removePlayersDisconected() {
+	for (int i = 0; i < playersToRemove.size(); i++) {
+		for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
+			if (players.at(playersToRemove[i]).port == it->second.port) criticalMSG.erase()
+		}
+		players.erase(playersToRemove[i]);
+	}
+	playersToRemove.clear();
+}
 
 bool send(sf::Packet packet, int index) {
 
@@ -198,24 +203,46 @@ void removeObstacles() {
 }
 
 void spawnObstacle() {
+	
+	if (gameReady == true) {
+		int spawnPoint = rand() % 570;
+		int speed = rand() % 1 + 1;
 
-	int spawnPoint = rand() % 570;
-	int speed = rand() % 5; 
+		packetOut.clear();
+		packetOut << Commands::OBSTACLE_SPAWN << obstacleId << spawnPoint << speed;
 
-	packetOut.clear();
-	packetOut << Commands::OBSTACLE_SPAWN << obstacleId << spawnPoint << speed;
+		obstacle newObstacle = obstacle();
+		newObstacle.spawnPointY = spawnPoint;
+		newObstacle.speed = speed;
+		ObstacleMap.emplace(obstacleId, newObstacle);
 
-	obstacle newObstacle = obstacle();
-	newObstacle.spawnPointY = spawnPoint;
-	newObstacle.speed = speed;
-	ObstacleMap.emplace(obstacleId, newObstacle);
+		for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
+			sendCriticalMSG(packetOut, it->first);
+		}
+
+		obstacleId++;
+	}
+}
+
+void checkColision() {
 
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
-		sendCriticalMSG(packetOut, it->first);
+		if (it->second.posX > 602 || it->second.posX < 172) {
+			packetOut << Commands::DEAD;
+			sendCriticalMSG(packetOut, it->first);
+			packetOut.clear();
+		} else {
+			for (std::map<int, obstacle>::iterator iterator = ObstacleMap.begin(); iterator != ObstacleMap.end(); iterator++) {
+				if (it->second.posX + 30 >= iterator->second.currentX && it->second.posX <= iterator->second.currentX + 20) {
+					if (it->second.posY <= iterator->second.spawnPointY + 20 && it->second.posY + 30 >= iterator->second.spawnPointY) {
+						packetOut << Commands::DEAD;
+						sendCriticalMSG(packetOut, it->first);
+						packetOut.clear();
+					}
+				}
+			}
+		}
 	}
-
-	obstacleId++;
-
 }
 
 void main() {
@@ -283,6 +310,7 @@ void main() {
 						}
 					}
 					std::cout << "Se ha conectado el jugador: " << i->second.nickname << " : " << i->first << std::endl;
+					if (players.size() == MAX_PLAYERS) { gameReady = true; std::cout << "GAME READY\n"; }
 				}
 				break;
 			}
@@ -312,6 +340,12 @@ void main() {
 				}
 			}
 				break;
+			case DEAD: {
+				int idPlayer;
+				packetIn >> idPlayer;
+				disconect(idPlayer);
+				packetIn.clear();
+			}
 			default:
 				break;
 			}
@@ -320,14 +354,14 @@ void main() {
 		}
 
 		if (clock.getElapsedTime().asMilliseconds() > 100) {
-			pingCount++;
 			clock.restart();
 			if (pingCount >= 10) {
-				spawnObstacle();
-				if (players.size() >= MAX_PLAYERS) sendPing();
+				sendPing();
 				pingCount = 0;
+				spawnObstacle();
 			}
 			sendAllCriticalMSG();
+			pingCount++;
 		}
 
 		//Update obstacle Position
@@ -341,6 +375,7 @@ void main() {
 
 		removePlayersDisconected();
 		removeObstacles();
+		checkColision();
 
 	}
 
