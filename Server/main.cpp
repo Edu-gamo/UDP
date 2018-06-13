@@ -43,6 +43,10 @@ public:
 	int posX, posY;
 
 	unsigned short pings;
+
+	std::map<int, sf::Packet> criticalMSG;
+	int criticalID = 0;
+
 };
 
 Player::Player()
@@ -56,24 +60,11 @@ Player::~Player()
 std::map<int, Player> players;
 std::vector<int> playersToRemove;
 
-
-struct CriticalPacket {
-
-	sf::IpAddress ip;
-	unsigned short port;
-	sf::Packet packet;
-
-};
-
-std::map<int, CriticalPacket> criticalMSG;
-//std::vector<int> critical
-int criticalID;
-
 void removePlayersDisconected() {
 	for (int i = 0; i < playersToRemove.size(); i++) {
-		for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
+		/*for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
 			if (players.at(playersToRemove[i]).port == it->second.port) criticalMSG.erase(it->first);
-		}
+		}*/
 		players.erase(playersToRemove[i]);
 	}
 	playersToRemove.clear();
@@ -113,26 +104,28 @@ void sendAll(sf::Packet packet) {
 
 void sendCriticalMSG(sf::Packet packet, int index) {
 
-	CriticalPacket cp;
-	cp.ip = players.at(index).ip;
-	cp.port = players.at(index).port;
-	packet << criticalID;
-	cp.packet = packet;
-
-	criticalMSG.emplace(criticalID, cp);
-	criticalID++;
+	packet << players.at(index).criticalID;
+	players.at(index).criticalMSG.emplace(players.at(index).criticalID, packet);
+	players.at(index).criticalID++;
 
 	send(packet, index);
 	
 }
 
 void sendAllCriticalMSG() {
-	for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {		
-		if (rand() % RND == 1) {
-			std::cout << "Se ha perdido el Paquete al enviarse\n";
-		} else {
-			socket.send(it->second.packet, it->second.ip, it->second.port);
+
+	for (std::map<int, Player>::iterator playerIt = players.begin(); playerIt != players.end(); playerIt++) {
+
+		for (std::map<int, sf::Packet>::iterator criticalIt = playerIt->second.criticalMSG.begin(); criticalIt != playerIt->second.criticalMSG.end(); criticalIt++) {
+		
+			if (rand() % RND == 1) {
+				std::cout << "Se ha perdido el Paquete al enviarse\n";
+			} else {
+				socket.send(criticalIt->second, playerIt->second.ip, playerIt->second.port);
+			}
+
 		}
+
 	}
 }
 
@@ -322,30 +315,34 @@ void main() {
 			}
 				break;
 			case ACK: {
-				int id;
-				packetIn >> id;
-				criticalMSG.erase(id);
+				int idPlayer, idPacket;
+				packetIn >> idPlayer >> idPacket;
+				players.at(idPlayer).criticalMSG.erase(idPacket);
 			}
 				break;
 			case MOVE: {
 				int idPlayer, idPacket, deltaX, deltaY;
 				packetIn >> idPlayer >> idPacket;
-				if (players.at(idPlayer).lastMoveId < idPacket) {
-					packetIn >> deltaX >> deltaY;
-					players.at(idPlayer).posX += deltaX;
-					players.at(idPlayer).posY += deltaY;
-					packetOut.clear();
-					packetOut << Commands::MOVE << idPlayer << idPacket << players.at(idPlayer).posX << players.at(idPlayer).posY;
-					sendAll(packetOut);
+				if (players.find(idPlayer) != players.end()) {
+					if (players.at(idPlayer).lastMoveId < idPacket) {
+						packetIn >> deltaX >> deltaY;
+						players.at(idPlayer).posX += deltaX;
+						players.at(idPlayer).posY += deltaY;
+						packetOut.clear();
+						packetOut << Commands::MOVE << idPlayer << idPacket << players.at(idPlayer).posX << players.at(idPlayer).posY;
+						sendAll(packetOut);
+					}
 				}
 			}
 				break;
 			case DEAD: {
 				int idPlayer;
 				packetIn >> idPlayer;
+				std::cout << "Ha muerto el jugador: " << idPlayer << std::endl;
 				disconect(idPlayer);
 				packetIn.clear();
 			}
+				break;
 			default:
 				break;
 			}
@@ -375,7 +372,7 @@ void main() {
 
 		removePlayersDisconected();
 		removeObstacles();
-		checkColision();
+		//checkColision();
 
 	}
 

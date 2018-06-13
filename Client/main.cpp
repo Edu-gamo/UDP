@@ -17,6 +17,8 @@ sf::RenderWindow window;
 
 int idMove = 0;
 
+int pasosInterpolacion = 4;
+
 int RND = 20;
 
 enum Commands {
@@ -31,7 +33,7 @@ public:
 	std::string nickname;
 	int id_player;
 
-	int posX, posY;
+	int posX, posY, newPosX, newPosY;
 	int deltaX, deltaY;
 
 	int lastMoveId = 0;
@@ -100,6 +102,29 @@ sf::Socket::Status receive() {
 	return socket.receive(packetIn, senderIP, senderPort);
 }
 
+void dead() {
+	packetOut.clear();
+	packetOut << Commands::DEAD << me.id_player;
+	send(packetOut);
+	std::cout << "HAS MUERTO\n";
+	window.close();
+}
+
+void checkColision() {
+	
+	if (me.posX > 602 || me.posX < 172) {
+		dead();
+	} else {
+		for (std::map<int, obstacle>::iterator iterator = ObstacleMap.begin(); iterator != ObstacleMap.end(); iterator++) {
+			if (me.posX + 30 >= iterator->second.currentX && me.posX <= iterator->second.currentX + 20) {
+				if (me.posY <= iterator->second.spawnPointY + 20 && me.posY + 30 >= iterator->second.spawnPointY) {
+					dead();
+				}
+			}
+		}
+	}
+}
+
 bool connect() {
 
 	bool connected = false;
@@ -138,6 +163,17 @@ bool connect() {
 	} while (!connected && intents < 100);
 
 	return connected;
+
+}
+
+void movePlayers() {
+
+	for (std::map<int, Player>::iterator playerIt = players.begin(); playerIt != players.end(); playerIt++) {
+
+		if (playerIt->second.posX != playerIt->second.newPosX) playerIt->second.posX += playerIt->second.deltaX;
+		if (playerIt->second.posY != playerIt->second.newPosY) playerIt->second.posY += playerIt->second.deltaY;
+
+	}
 
 }
 
@@ -193,12 +229,14 @@ void update(sf::Clock clock) {
 				packetIn >> newPlayer.nickname;
 				packetIn >> newPlayer.posX;
 				packetIn >> newPlayer.posY;
+				newPlayer.newPosX = newPlayer.posX;
+				newPlayer.newPosY = newPlayer.posY;
 				packetIn >> idPacket;
 				players.emplace(newIdPlayer, newPlayer);
 				std::cout << "Nuevo jugador: " << newPlayer.nickname << std::endl;
 			}
 			packetOut.clear();
-			packetOut << Commands::ACK << idPacket;
+			packetOut << Commands::ACK << me.id_player << idPacket;
 			send(packetOut);
 			break;
 		}
@@ -224,7 +262,7 @@ void update(sf::Clock clock) {
 				players.erase(id);
 			}
 			packetOut.clear();
-			packetOut << Commands::ACK << idPacket;
+			packetOut << Commands::ACK << me.id_player << idPacket;
 			send(packetOut);
 		}
 			break;
@@ -250,38 +288,46 @@ void update(sf::Clock clock) {
 				ObstacleMap.emplace(obstacleId, newObstacle);
 			}
 			packetOut.clear();
-			packetOut << Commands::ACK << idPacket;
+			packetOut << Commands::ACK << me.id_player << idPacket;
 			std::cout << "Envio ACK de spawn\n";
 			send(packetOut);
 			break;
 		}
 			break;
 		case MOVE: {
-			int idPlayer, idPacket, newPosX, newPosY;
-			packetIn >> idPlayer >> idPacket >> newPosX >> newPosY;
+			int idPlayer, idPacket;
+			packetIn >> idPlayer >> idPacket;
 			if (idPlayer == me.id_player) {
 				if (idPacket > me.lastMoveId) {
-					me.posX = newPosX;
-					me.posY = newPosY;
+					packetIn >> me.posX >> me.posY;
 					me.lastMoveId = idPacket;
 				}
 			} else {
 				if (idPacket > players.at(idPlayer).lastMoveId) {
-					players.at(idPlayer).posX = newPosX;
-					players.at(idPlayer).posY = newPosY;
+					packetIn >> players.at(idPlayer).newPosX >> players.at(idPlayer).newPosY;
+					//Sin interpolación
+					/*players.at(idPlayer).posX = newPosX;
+					players.at(idPlayer).posY = newPosY;*/
+
+					//Con interpolación
+					players.at(idPlayer).deltaX = players.at(idPlayer).newPosX - players.at(idPlayer).posX;
+					players.at(idPlayer).deltaY = players.at(idPlayer).newPosY - players.at(idPlayer).posY;
+					players.at(idPlayer).deltaX /= pasosInterpolacion;
+					players.at(idPlayer).deltaY /= pasosInterpolacion;
+
 					players.at(idPlayer).lastMoveId = idPacket;
 				}
 			}
 		}
 			break;
-		case DEAD: {
+		/*case DEAD: {
 			packetIn >> idPacket;			
 			packetOut << Commands::DEAD << me.id_player << idPacket;
 			send(packetOut);
 			std::cout << "HAS MUERTO\n";
 			window.close();
 		}
-			break;
+			break;*/
 		default:
 			break;
 		}
@@ -302,6 +348,8 @@ void update(sf::Clock clock) {
 	}
 
 	removeObstacles();
+	checkColision();
+	movePlayers();
 
 	if (clock.getElapsedTime().asMilliseconds() > 100) {
 		packetOut.clear();
