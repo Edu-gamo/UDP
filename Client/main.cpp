@@ -91,7 +91,7 @@ bool send(sf::Packet packet) {
 		std::cout << "Se ha perdido el Paquete al enviarse\n";
 		return true;
 	} else {
-		std::cout << "Se ha enviado OK\n";
+		std::cout << "Se ha enviado el Paquete correctamente\n";
 		return (socket.send(packet, serverIp, serverPort) == sf::Socket::Done);
 	}
 }
@@ -206,7 +206,6 @@ void update(sf::Clock clock) {
 		case PING: {
 			packetOut.clear();
 			packetOut << Commands::PING << me.id_player;
-			std::cout << me.id_player << "\n";
 			send(packetOut);
 		}
 			break;
@@ -252,7 +251,7 @@ void update(sf::Clock clock) {
 			}
 			packetOut.clear();
 			packetOut << Commands::ACK << idPacket;
-			std::cout << "envio ACK de spawn\n";
+			std::cout << "Envio ACK de spawn\n";
 			send(packetOut);
 			break;
 		}

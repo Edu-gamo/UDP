@@ -72,7 +72,7 @@ int criticalID;
 void removePlayersDisconected() {
 	for (int i = 0; i < playersToRemove.size(); i++) {
 		for (std::map<int, CriticalPacket>::iterator it = criticalMSG.begin(); it != criticalMSG.end(); it++) {
-			if (players.at(playersToRemove[i]).port == it->second.port) criticalMSG.erase()
+			if (players.at(playersToRemove[i]).port == it->second.port) criticalMSG.erase(it->first);
 		}
 		players.erase(playersToRemove[i]);
 	}
@@ -93,7 +93,7 @@ bool send(sf::Packet packet, int index) {
 void sendAll(sf::Packet packet, int index) {
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
 		if (rand() % RND == 1) {
-			std::cout << "Se ha perdido el Paquete al enviarse\n";
+			std::cout << "Se ha perdido el Paquete al enviarse a \n" << it->second.nickname <<"\n";
 		} else {
 			if (index != it->first) socket.send(packet, it->second.ip, it->second.port);
 		}
@@ -104,7 +104,7 @@ void sendAll(sf::Packet packet, int index) {
 void sendAll(sf::Packet packet) {
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {		
 		if (rand() % RND == 1) {
-			std::cout << "Se ha perdido el Paquete al enviarse\n";
+			std::cout << "Se ha perdido el Paquete al enviarse a \n" << it->second.nickname << "\n";
 		} else {
 			socket.send(packet, it->second.ip, it->second.port);
 		}
@@ -151,7 +151,7 @@ void sendPing() {
 	for (std::map<int, Player>::iterator it = players.begin(); it != players.end(); it++) {
 		socket.send(packetOut, it->second.ip, it->second.port);
 		it->second.pings++;
-		std::cout << it->second.nickname << " : " << it->second.pings << std::endl;
+		std::cout << "Pings de " << it->second.nickname << " : " << it->second.pings << std::endl;
 		if (it->second.pings >= max_pings) {
 			std::cout << it->second.nickname << " se ha desconectado\n";
 			disconect(it->first);
@@ -310,7 +310,7 @@ void main() {
 						}
 					}
 					std::cout << "Se ha conectado el jugador: " << i->second.nickname << " : " << i->first << std::endl;
-					if (players.size() == MAX_PLAYERS) { gameReady = true; std::cout << "GAME READY\n"; }
+					if (players.size() == 4) { gameReady = true; std::cout << "GAME READY\n"; }
 				}
 				break;
 			}
